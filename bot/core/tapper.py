@@ -49,7 +49,6 @@ from bot.exceptions import InvalidSession
 from bot.utils.websocket_manager import WebsocketManager
 
 self_tg_client = SelfTGClient()
-
 class Tapper:
     def __init__(self, tg_client: Client):
         self.session_name = tg_client.name
@@ -84,7 +83,7 @@ class Tapper:
         self.chat_instance = None
         self.user_info = None
         self.status = None
-
+        self.Is_Block = False
         headers['User-Agent'] = self.check_user_agent()
         headers_notcoin['User-Agent'] = headers['User-Agent']
 
@@ -1272,15 +1271,21 @@ class Tapper:
                     show_url = adv_data['banner']['trackings'][1]['value']
                     show_response = await http_client.get(show_url, headers=_headers)
                     show_response.raise_for_status()
-                    await asyncio.sleep(random.randint(10, 15))
+                    await asyncio.sleep(random.randint(17, 20))
                     reward_url = adv_data['banner']['trackings'][4]['value']
                     reward_response = await http_client.get(reward_url, headers=_headers)
                     reward_response.raise_for_status()
                     await asyncio.sleep(random.randint(1, 5))
                     current_balance = await self.get_balance(http_client=http_client)
                     delta = round(current_balance - previous_balance, 1)
-                    self.success(f"Ad view completed successfully. | Reward: <e>{delta}</e>")
-                    await asyncio.sleep(random.randint(30, 35))
+                    if delta==0.0:
+                        self.info("Look like you have been blocked! Sleep about 30 minutes 💤")
+                        self.Is_Block = True
+                        break
+                    else:
+                        self.success(f"Ad view completed successfully. | Reward: <e>{delta}</e>")
+                        self.info(f"Balance: <light-green>{'{:,.3f}'.format(current_balance)}</light-green> 🔳")
+                        await asyncio.sleep(random.randint(45, 60))
                 else:
                     self.info(f"No ads are available for viewing at the moment.")
                     break
@@ -1591,26 +1596,25 @@ class Tapper:
 
                 sleep_time = random.randint(int(settings.SLEEP_TIME_IN_MINUTES[0]), int(settings.SLEEP_TIME_IN_MINUTES[1]))
                 is_night = False
+                if self.Is_Block==False:
+                    if settings.DISABLE_IN_NIGHT:
+                        is_night = self.is_night_time()
+                    if is_night:
+                        sleep_time = self.time_until_morning()
+                    if is_night:
+                        self.info(f"sleep {int(sleep_time)} minutes to the morning (to {int(settings.NIGHT_TIME[1])} am hours) 💤")
+                    else:
+                        self.info(f"sleep {int(sleep_time)} minutes between cycles 💤")
 
-                if settings.DISABLE_IN_NIGHT:
-                    is_night = self.is_night_time()
-
-                if is_night:
-                    sleep_time = self.time_until_morning()
-
-                if is_night:
-                    self.info(f"sleep {int(sleep_time)} minutes to the morning (to {int(settings.NIGHT_TIME[1])} am hours) 💤")
+                    if self.socket != None:
+                        try:
+                            await self.socket.close()
+                        except Exception as error:
+                            self.warning(f"Unknown error during closing socket: <light-yellow>{error}</light-yellow>")
+                    await asyncio.sleep(delay=sleep_time*60)
                 else:
-                    self.info(f"sleep {int(sleep_time)} minutes between cycles 💤")
-
-                if self.socket != None:
-                    try:
-                        await self.socket.close()
-                    except Exception as error:
-                        self.warning(f"Unknown error during closing socket: <light-yellow>{error}</light-yellow>")
-
-                await asyncio.sleep(delay=sleep_time*60)
-
+                    self.Is_Block = False
+                    await asyncio.sleep(random.randint(30*60, 35*60))
             except Exception as error:
                 self.error(f"Unknown error: <light-yellow>{error}</light-yellow>")
                 await asyncio.sleep(delay=random.randint(5, 10))
