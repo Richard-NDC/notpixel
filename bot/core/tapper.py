@@ -84,6 +84,8 @@ class Tapper:
         self.user_info = None
         self.status = None
         self.Is_Block = False
+        self.Block_Sleep_Time = 5
+        self.Time_Blocked = 0
         headers['User-Agent'] = self.check_user_agent()
         headers_notcoin['User-Agent'] = headers['User-Agent']
 
@@ -1271,7 +1273,7 @@ class Tapper:
                     show_url = adv_data['banner']['trackings'][1]['value']
                     show_response = await http_client.get(show_url, headers=_headers)
                     show_response.raise_for_status()
-                    await asyncio.sleep(random.randint(17, 20))
+                    await asyncio.sleep(random.randint(17, 25))
                     reward_url = adv_data['banner']['trackings'][4]['value']
                     reward_response = await http_client.get(reward_url, headers=_headers)
                     reward_response.raise_for_status()
@@ -1279,12 +1281,16 @@ class Tapper:
                     current_balance = await self.get_balance(http_client=http_client)
                     delta = round(current_balance - previous_balance, 1)
                     if delta==0.0:
-                        self.info("Look like you have been blocked! Sleep about 30 minutes 💤")
+                        random_extended_sleep_time = random.randint(1, 6)
+                        self.Block_Sleep_Time = random.randint(self.Block_Sleep_Time, self.Block_Sleep_Time+random_extended_sleep_time)
+                        self.info(f"Look like you have been blocked! Sleep {self.Block_Sleep_Time} minutes 💤")
                         self.Is_Block = True
+                        self.Time_Blocked+=1
                         break
                     else:
                         self.success(f"Ad view completed successfully. | Reward: <e>{delta}</e>")
                         self.info(f"Balance: <light-green>{'{:,.3f}'.format(current_balance)}</light-green> 🔳")
+                        self.Time_Blocked=0
                         await asyncio.sleep(random.randint(45, 60))
                 else:
                     self.info(f"No ads are available for viewing at the moment.")
@@ -1613,8 +1619,10 @@ class Tapper:
                             self.warning(f"Unknown error during closing socket: <light-yellow>{error}</light-yellow>")
                     await asyncio.sleep(delay=sleep_time*60)
                 else:
+                    if self.Block_Sleep_Time>1:
+                        self.Block_Sleep_Time+=random.randint(5, 10)
                     self.Is_Block = False
-                    await asyncio.sleep(random.randint(30*60, 35*60))
+                    await asyncio.sleep(self.Block_Sleep_Time)
             except Exception as error:
                 self.error(f"Unknown error: <light-yellow>{error}</light-yellow>")
                 await asyncio.sleep(delay=random.randint(5, 10))
